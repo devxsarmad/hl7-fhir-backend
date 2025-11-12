@@ -1,0 +1,100 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type Hl7ParsedData {
+  messageHeader: MessageHeader
+  observation: Observation
+  order: Order
+  patient: Hl7Patient
+}
+
+type Hl7Patient {
+  address: PatientAddress!
+  dateOfBirth: String!
+  firstName: String!
+  gender: String!
+  lastName: String!
+  patientId: String!
+  phoneNumber: String
+  segmentType: String!
+}
+
+type Hl7SaveResponse {
+  message: String!
+  patient: SavedPatient
+  success: Boolean!
+}
+
+type MessageHeader {
+  messageControlId: String!
+  messageDateTime: String!
+  messageType: String!
+  segmentType: String!
+  sendingApplication: String!
+  sendingFacility: String!
+}
+
+type Mutation {
+  parseAndSaveHl7Message(input: ParseHl7Input!): Hl7SaveResponse!
+  parseHl7Message(input: ParseHl7Input!): Hl7ParsedData!
+}
+
+type Observation {
+  observationDateTime: String!
+  observationIdentifier: ObservationIdentifier!
+  orderingProvider: OrderingProvider!
+  placerOrderNumber: String!
+  segmentType: String!
+  setId: String!
+}
+
+type ObservationIdentifier {
+  code: String!
+  codingSystem: String!
+  text: String!
+}
+
+type Order {
+  orderControl: String!
+  orderDateTime: String!
+  placerOrderNumber: String!
+  segmentType: String!
+}
+
+type OrderingProvider {
+  firstName: String!
+  id: String!
+  lastName: String!
+}
+
+input ParseHl7Input {
+  message: String!
+}
+
+type Patient {
+  dateOfBirth: String
+  firstName: String!
+  gender: String
+  id: ID!
+  lastName: String!
+}
+
+type PatientAddress {
+  city: String!
+  state: String!
+  street: String!
+  zipCode: String!
+}
+
+type Query {
+  patient: Patient!
+  patients: [Patient!]!
+}
+
+type SavedPatient {
+  firstName: String!
+  id: String!
+  lastName: String!
+  patientId: String!
+}
