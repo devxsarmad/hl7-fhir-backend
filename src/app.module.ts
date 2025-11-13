@@ -8,6 +8,7 @@ import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { PatientModule } from './patient/patient.module';
 import { Hl7Module } from './hl7/hl7.module';
+import { FhirModule } from './fhir/fhir.module';
 
 @Module({
   imports: [
@@ -23,6 +24,8 @@ import { Hl7Module } from './hl7/hl7.module';
     PrismaModule,
     PatientModule,
     Hl7Module,
+    FhirModule,
+      
   ],
   controllers: [AppController],
   providers: [AppService],
