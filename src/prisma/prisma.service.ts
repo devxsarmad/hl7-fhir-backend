@@ -5,7 +5,9 @@ import { PrismaClient } from '@prisma/client';
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   async onModuleInit() {
     await this.$connect();
+    console.log(`✅ Server running on port ${process.env.PORT}`);
     console.log('✅ Database connected');
+
   }
 
   async onModuleDestroy() {
