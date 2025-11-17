@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { FhirPatient } from '../dto/fhir-patient.dto';
+import { FhirObservation } from '../dto/fhir-observation.dto';
 
 @Injectable()
 export class FhirTransformerService {
@@ -80,6 +81,177 @@ export class FhirTransformerService {
       phoneNumber: phone?.value || null
     };
   }
+
+toFhirObservation(observation: any, patient?: any): FhirObservation {
+    const fhirObservation: FhirObservation = {
+      resourceType: 'Observation',
+      id: observation.id,
+      status: this.mapResultStatus(observation.resultStatus),
+      code: {
+        coding: [
+          {
+            system: this.mapCodingSystem(observation.observationCodingSystem),
+            code: observation.observationCode,
+            display: observation.observationText,
+          }
+        ],
+        text: observation.observationText,
+      },
+      subject: {
+        reference: `Patient/${observation.order?.patientId || patient?.id || 'unknown'}`,
+        display: patient ? `${patient.firstName} ${patient.lastName}` : undefined,
+      },
+      effectiveDateTime: this.formatDateTimeForFhir(observation.observationDateTime),
+      issued: observation.updatedAt?.toISOString(),
+      meta: {
+        versionId: '1',
+        lastUpdated: observation.updatedAt?.toISOString() || new Date().toISOString(),
+      },
+    };
+
+    // Add value based on type
+    if (observation.valueType === 'NM' && observation.value) {
+      fhirObservation.valueQuantity = {
+        value: parseFloat(observation.value),
+        unit: observation.units,
+        system: 'http://unitsofmeasure.org',
+        code: observation.units,
+      };
+    } else {
+      fhirObservation.valueString = observation.value;
+    }
+
+    // Add interpretation (Normal, High, Low)
+    if (observation.abnormalFlags && observation.abnormalFlags !== 'N') {
+      fhirObservation.interpretation = [
+        {
+          coding: [
+            {
+              system: 'http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation',
+              code: this.mapAbnormalFlag(observation.abnormalFlags),
+              display: this.getAbnormalFlagDisplay(observation.abnormalFlags),
+            }
+          ],
+        }
+      ];
+    }
+
+    // Add reference range
+    if (observation.referenceRangeLow || observation.referenceRangeHigh) {
+      fhirObservation.referenceRange = [
+        {
+          low: observation.referenceRangeLow ? {
+            value: parseFloat(observation.referenceRangeLow),
+            unit: observation.units,
+          } : undefined,
+          high: observation.referenceRangeHigh ? {
+            value: parseFloat(observation.referenceRangeHigh),
+            unit: observation.units,
+          } : undefined,
+        }
+      ];
+    }
+
+    return fhirObservation;
+  }
+
+  // Helper: Map result status to FHIR status
+  private mapResultStatus(status: string): 'registered' | 'preliminary' | 'final' | 'amended' | 'corrected' | 'cancelled' {
+    switch (status?.toUpperCase()) {
+      case 'F':
+        return 'final';
+      case 'P':
+        return 'preliminary';
+      case 'C':
+        return 'corrected';
+      case 'X':
+        return 'cancelled';
+      default:
+        return 'final';
+    }
+  }
+
+  // Helper: Map coding system
+  private mapCodingSystem(system: string): string {
+    switch (system?.toUpperCase()) {
+      case 'LN':
+      case 'LOINC':
+        return 'http://loinc.org';
+      case 'SCT':
+      case 'SNOMED':
+        return 'http://snomed.info/sct';
+      default:
+        return 'http://loinc.org';
+    }
+  }
+
+  // Helper: Map abnormal flags
+  private mapAbnormalFlag(flag: string): string {
+    switch (flag?.toUpperCase()) {
+      case 'H':
+      case 'HH':
+        return 'H'; // High
+      case 'L':
+      case 'LL':
+        return 'L'; // Low
+      case 'A':
+        return 'A'; // Abnormal
+      case 'N':
+      default:
+        return 'N'; // Normal
+    }
+  }
+
+  // Helper: Get display text for abnormal flags
+  private getAbnormalFlagDisplay(flag: string): string {
+    switch (flag?.toUpperCase()) {
+      case 'H':
+        return 'High';
+      case 'HH':
+        return 'Critical High';
+      case 'L':
+        return 'Low';
+      case 'LL':
+        return 'Critical Low';
+      case 'A':
+        return 'Abnormal';
+      case 'N':
+      default:
+        return 'Normal';
+    }
+  }
+
+  // Helper: Format datetime for FHIR
+  private formatDateTimeForFhir(datetime: string): string {
+    if (!datetime) return new Date().toISOString();
+    
+    // If already ISO format, return as-is
+    if (datetime.includes('T')) {
+      return datetime;
+    }
+    
+    // If YYYYMMDDHHMMSS format, convert to ISO
+    if (/^\d{14}$/.test(datetime)) {
+      const year = datetime.substring(0, 4);
+      const month = datetime.substring(4, 6);
+      const day = datetime.substring(6, 8);
+      const hour = datetime.substring(8, 10);
+      const minute = datetime.substring(10, 12);
+      const second = datetime.substring(12, 14);
+      return `${year}-${month}-${day}T${hour}:${minute}:${second}Z`;
+    }
+    
+    // If YYYYMMDD format, add time
+    if (/^\d{8}$/.test(datetime)) {
+      const year = datetime.substring(0, 4);
+      const month = datetime.substring(4, 6);
+      const day = datetime.substring(6, 8);
+      return `${year}-${month}-${day}T00:00:00Z`;
+    }
+    
+    return datetime;
+  }
+
 
   // Helper: Map database gender to FHIR gender
   private mapGender(gender: string): 'male' | 'female' | 'other' | 'unknown' {

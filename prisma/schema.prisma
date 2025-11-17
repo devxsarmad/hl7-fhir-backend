@@ -51,8 +51,20 @@ model Observation {
   orderingProviderId      String?
   orderingProviderLastName String?
   orderingProviderFirstName String?
+  // fields for OBX data:
+  valueType               String?   // NM, ST, TX, etc.
+  value                   String?   // The actual result value
+  units                   String?   // Units of measurement
+  referenceRangeLow       String?   // Lower bound
+  referenceRangeHigh      String?   // Upper bound
+  abnormalFlags           String?   // N, H, L, etc.
+  resultStatus            String?   // F, P, C (Final, Preliminary, Corrected)
+  
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
+  
   orderId                 String
   order                   Order    @relation(fields: [orderId], references: [id])
+  
+  @@unique([orderId, setId])
 }

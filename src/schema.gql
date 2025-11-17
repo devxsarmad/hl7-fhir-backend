@@ -2,6 +2,13 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+type Hl7OruResponse {
+  message: String!
+  patient: SavedPatientSimple
+  resultCount: Int
+  success: Boolean!
+}
+
 type Hl7ParsedData {
   messageHeader: MessageHeader
   observation: Observation
@@ -37,6 +44,7 @@ type MessageHeader {
 
 type Mutation {
   parseAndSaveHl7Message(input: ParseHl7Input!): Hl7SaveResponse!
+  parseAndSaveHl7Results(input: ParseHl7Input!): Hl7OruResponse!
   parseHl7Message(input: ParseHl7Input!): Hl7ParsedData!
 }
 
@@ -93,6 +101,13 @@ type Query {
 }
 
 type SavedPatient {
+  firstName: String!
+  id: String!
+  lastName: String!
+  patientId: String!
+}
+
+type SavedPatientSimple {
   firstName: String!
   id: String!
   lastName: String!
