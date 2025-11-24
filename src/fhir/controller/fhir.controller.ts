@@ -2,8 +2,6 @@ import { Controller, Get, Post, Put, Delete, Body, Param, Query, HttpException, 
 import { PrismaService } from 'src/prisma/prisma.service';
 import { FhirPatient } from '../dto/fhir-patient.dto';
 import { FhirTransformerService } from '../fhir-transformer/fhir-transformer.service';
-
-
 @Controller('fhir')
 export class FhirPatientController {
   constructor(

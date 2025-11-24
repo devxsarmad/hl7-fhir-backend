@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { FhirPatient } from '../dto/fhir-patient.dto';
 import { FhirObservation } from '../dto/fhir-observation.dto';
+import { FhirServiceRequest } from '../dto/fhir-service-request.dto';
 
 @Injectable()
 export class FhirTransformerService {
-  
   // Convert our database Patient to FHIR Patient
   toFhirPatient(patient: any): FhirPatient {
     const fhirPatient: FhirPatient = {
@@ -13,24 +13,25 @@ export class FhirTransformerService {
       identifier: [
         {
           system: 'http://hospital.com/patient-id',
-          value: patient.patientId
-        }
+          value: patient.patientId,
+        },
       ],
       name: [
         {
           use: 'official',
           family: patient.lastName,
-          given: patient.middleName 
+          given: patient.middleName
             ? [patient.firstName, patient.middleName]
-            : [patient.firstName]
-        }
+            : [patient.firstName],
+        },
       ],
       gender: this.mapGender(patient.gender),
       birthDate: this.formatDate(patient.dateOfBirth),
       meta: {
         versionId: '1',
-        lastUpdated: patient.updatedAt?.toISOString() || new Date().toISOString()
-      }
+        lastUpdated:
+          patient.updatedAt?.toISOString() || new Date().toISOString(),
+      },
     };
 
     // Add address if available
@@ -41,8 +42,8 @@ export class FhirTransformerService {
           line: patient.street ? [patient.street] : [],
           city: patient.city || '',
           state: patient.state || '',
-          postalCode: patient.zipCode || ''
-        }
+          postalCode: patient.zipCode || '',
+        },
       ];
     }
 
@@ -52,8 +53,8 @@ export class FhirTransformerService {
         {
           system: 'phone',
           value: patient.phoneNumber,
-          use: 'home'
-        }
+          use: 'home',
+        },
       ];
     }
 
@@ -64,7 +65,7 @@ export class FhirTransformerService {
   fromFhirPatient(fhirPatient: FhirPatient): any {
     const name = fhirPatient.name?.[0];
     const address = fhirPatient.address?.[0];
-    const phone = fhirPatient.telecom?.find(t => t.system === 'phone');
+    const phone = fhirPatient.telecom?.find((t) => t.system === 'phone');
     const identifier = fhirPatient.identifier?.[0];
 
     return {
@@ -78,11 +79,11 @@ export class FhirTransformerService {
       city: address?.city || null,
       state: address?.state || null,
       zipCode: address?.postalCode || null,
-      phoneNumber: phone?.value || null
+      phoneNumber: phone?.value || null,
     };
   }
 
-toFhirObservation(observation: any, patient?: any): FhirObservation {
+  toFhirObservation(observation: any, patient?: any): FhirObservation {
     const fhirObservation: FhirObservation = {
       resourceType: 'Observation',
       id: observation.id,
@@ -93,19 +94,24 @@ toFhirObservation(observation: any, patient?: any): FhirObservation {
             system: this.mapCodingSystem(observation.observationCodingSystem),
             code: observation.observationCode,
             display: observation.observationText,
-          }
+          },
         ],
         text: observation.observationText,
       },
       subject: {
         reference: `Patient/${observation.order?.patientId || patient?.id || 'unknown'}`,
-        display: patient ? `${patient.firstName} ${patient.lastName}` : undefined,
+        display: patient
+          ? `${patient.firstName} ${patient.lastName}`
+          : undefined,
       },
-      effectiveDateTime: this.formatDateTimeForFhir(observation.observationDateTime),
+      effectiveDateTime: this.formatDateTimeForFhir(
+        observation.observationDateTime,
+      ),
       issued: observation.updatedAt?.toISOString(),
       meta: {
         versionId: '1',
-        lastUpdated: observation.updatedAt?.toISOString() || new Date().toISOString(),
+        lastUpdated:
+          observation.updatedAt?.toISOString() || new Date().toISOString(),
       },
     };
 
@@ -127,12 +133,13 @@ toFhirObservation(observation: any, patient?: any): FhirObservation {
         {
           coding: [
             {
-              system: 'http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation',
+              system:
+                'http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation',
               code: this.mapAbnormalFlag(observation.abnormalFlags),
               display: this.getAbnormalFlagDisplay(observation.abnormalFlags),
-            }
+            },
           ],
-        }
+        },
       ];
     }
 
@@ -140,23 +147,137 @@ toFhirObservation(observation: any, patient?: any): FhirObservation {
     if (observation.referenceRangeLow || observation.referenceRangeHigh) {
       fhirObservation.referenceRange = [
         {
-          low: observation.referenceRangeLow ? {
-            value: parseFloat(observation.referenceRangeLow),
-            unit: observation.units,
-          } : undefined,
-          high: observation.referenceRangeHigh ? {
-            value: parseFloat(observation.referenceRangeHigh),
-            unit: observation.units,
-          } : undefined,
-        }
+          low: observation.referenceRangeLow
+            ? {
+                value: parseFloat(observation.referenceRangeLow),
+                unit: observation.units,
+              }
+            : undefined,
+          high: observation.referenceRangeHigh
+            ? {
+                value: parseFloat(observation.referenceRangeHigh),
+                unit: observation.units,
+              }
+            : undefined,
+        },
       ];
     }
 
     return fhirObservation;
   }
+  toFhirServiceRequest(order: any, patient?: any): FhirServiceRequest {
+    const fhirServiceRequest: FhirServiceRequest = {
+      resourceType: 'ServiceRequest',
+      id: order.id,
+      identifier: [
+        {
+          system: 'http://hospital.com/order-id',
+          value: order.placerOrderNumber,
+        },
+      ],
+      status: this.mapOrderStatus(order.orderControl),
+      intent: 'order',
+      subject: {
+        reference: `Patient/${order.patientId}`,
+        display: patient
+          ? `${patient.firstName} ${patient.lastName}`
+          : undefined,
+      },
+      authoredOn: this.formatDateTimeForFhir(order.orderDateTime),
+      meta: {
+        versionId: '1',
+        lastUpdated: order.updatedAt?.toISOString() || new Date().toISOString(),
+      },
+    };
 
+    // Add code if we can get it from related observations
+    if (order.observations && order.observations.length > 0) {
+      const firstObs = order.observations[0];
+      fhirServiceRequest.code = {
+        coding: [
+          {
+            system: this.mapCodingSystem(firstObs.observationCodingSystem),
+            code: firstObs.observationCode,
+            display: firstObs.observationText,
+          },
+        ],
+        text: firstObs.observationText,
+      };
+    }
+
+    return fhirServiceRequest;
+  }
+
+  // NEW: Convert FHIR ServiceRequest to database Order
+  fromFhirServiceRequest(fhirServiceRequest: FhirServiceRequest): any {
+    const patientRef = fhirServiceRequest.subject.reference;
+    const patientId = patientRef.replace('Patient/', '');
+
+    return {
+      placerOrderNumber:
+        fhirServiceRequest.identifier?.[0]?.value || `SR-${Date.now()}`,
+      orderControl: this.mapStatusToOrderControl(fhirServiceRequest.status),
+      orderDateTime:
+        fhirServiceRequest.authoredOn ||
+        new Date().toISOString().split('T')[0].replace(/-/g, ''),
+      patientId: patientId,
+    };
+  }
+
+  // Helper: Map order control to FHIR status
+  private mapOrderStatus(
+    orderControl: string,
+  ):
+    | 'draft'
+    | 'active'
+    | 'on-hold'
+    | 'revoked'
+    | 'completed'
+    | 'entered-in-error'
+    | 'unknown' {
+    switch (orderControl?.toUpperCase()) {
+      case 'NW': // New order
+      case 'SC': // Status changed
+        return 'active';
+      case 'CA': // Cancel
+        return 'revoked';
+      case 'DC': // Discontinue
+        return 'revoked';
+      case 'RE': // Results
+      case 'CM': // Complete
+        return 'completed';
+      case 'HD': // Hold
+        return 'on-hold';
+      default:
+        return 'active';
+    }
+  }
+
+  // Helper: Map FHIR status to order control
+  private mapStatusToOrderControl(status: string): string {
+    switch (status) {
+      case 'active':
+        return 'NW';
+      case 'completed':
+        return 'CM';
+      case 'revoked':
+        return 'CA';
+      case 'on-hold':
+        return 'HD';
+      default:
+        return 'NW';
+    }
+  }
   // Helper: Map result status to FHIR status
-  private mapResultStatus(status: string): 'registered' | 'preliminary' | 'final' | 'amended' | 'corrected' | 'cancelled' {
+  private mapResultStatus(
+    status: string,
+  ):
+    | 'registered'
+    | 'preliminary'
+    | 'final'
+    | 'amended'
+    | 'corrected'
+    | 'cancelled' {
     switch (status?.toUpperCase()) {
       case 'F':
         return 'final';
@@ -224,12 +345,12 @@ toFhirObservation(observation: any, patient?: any): FhirObservation {
   // Helper: Format datetime for FHIR
   private formatDateTimeForFhir(datetime: string): string {
     if (!datetime) return new Date().toISOString();
-    
+
     // If already ISO format, return as-is
     if (datetime.includes('T')) {
       return datetime;
     }
-    
+
     // If YYYYMMDDHHMMSS format, convert to ISO
     if (/^\d{14}$/.test(datetime)) {
       const year = datetime.substring(0, 4);
@@ -240,7 +361,7 @@ toFhirObservation(observation: any, patient?: any): FhirObservation {
       const second = datetime.substring(12, 14);
       return `${year}-${month}-${day}T${hour}:${minute}:${second}Z`;
     }
-    
+
     // If YYYYMMDD format, add time
     if (/^\d{8}$/.test(datetime)) {
       const year = datetime.substring(0, 4);
@@ -248,10 +369,9 @@ toFhirObservation(observation: any, patient?: any): FhirObservation {
       const day = datetime.substring(6, 8);
       return `${year}-${month}-${day}T00:00:00Z`;
     }
-    
+
     return datetime;
   }
-
 
   // Helper: Map database gender to FHIR gender
   private mapGender(gender: string): 'male' | 'female' | 'other' | 'unknown' {
@@ -282,17 +402,17 @@ toFhirObservation(observation: any, patient?: any): FhirObservation {
   // Helper: Format date to YYYY-MM-DD
   private formatDate(date: string): string {
     if (!date) return '';
-    
+
     // If already in YYYY-MM-DD format, return as-is
     if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return date;
     }
-    
+
     // If in YYYYMMDD format (from HL7), convert to YYYY-MM-DD
     if (/^\d{8}$/.test(date)) {
       return `${date.substring(0, 4)}-${date.substring(4, 6)}-${date.substring(6, 8)}`;
     }
-    
+
     return date;
   }
 }

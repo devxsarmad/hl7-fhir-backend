@@ -354,7 +354,6 @@ export class Hl7Service {
   private parseOBX(fields: string[]) {
     const observationIdentifier = fields[3]?.split('^') || [];
     const referenceRange = fields[7]?.split('-') || [];
-
     return {
       setId: fields[1] || '',
       valueType: fields[2] || 'NM', // NM=Numeric, ST=String, TX=Text
